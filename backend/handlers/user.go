@@ -12,7 +12,6 @@ import (
 	"k8s-autoscale-webapp/models"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/gorilla/mux"
 )
 
 type UserHandler struct {
@@ -93,8 +92,14 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+	// Extract ID from URL path using Go 1.22+ PathValue
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		http.Error(w, "Missing user ID", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
