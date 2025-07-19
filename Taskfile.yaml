@@ -1,0 +1,272 @@
+version: '3'
+
+vars:
+  CLUSTER_NAME: webapp-cluster
+  NAMESPACE: webapp
+  DOCKER_PATH: /Applications/Docker.app/Contents/Resources/bin
+
+env:
+  PATH: "{{.DOCKER_PATH}}:{{.PATH}}"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmd: task --list
+
+  # Cluster Management
+  cluster:create:
+    desc: Create kind cluster
+    cmds:
+      - kind create cluster --name {{.CLUSTER_NAME}}
+      - kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+      - kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+      - kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]' || true
+
+  cluster:delete:
+    desc: Delete kind cluster
+    cmd: kind delete cluster --name {{.CLUSTER_NAME}}
+
+  cluster:status:
+    desc: Check cluster status
+    cmds:
+      - kubectl cluster-info
+      - kubectl get nodes
+
+  # Build Commands
+  build:backend:
+    desc: Build backend Docker image
+    dir: backend
+    cmd: docker build -t backend:latest .
+
+  build:frontend:
+    desc: Build frontend Docker image
+    dir: frontend
+    cmd: docker build -t frontend:latest .
+
+  build:all:
+    desc: Build all Docker images
+    deps: [build:backend, build:frontend]
+
+  # Load Images to Kind
+  load:backend:
+    desc: Load backend image to kind cluster
+    cmd: kind load docker-image backend:latest --name {{.CLUSTER_NAME}}
+
+  load:frontend:
+    desc: Load frontend image to kind cluster
+    cmd: kind load docker-image frontend:latest --name {{.CLUSTER_NAME}}
+
+  load:all:
+    desc: Load all images to kind cluster
+    deps: [load:backend, load:frontend]
+
+  # Deployment Commands
+  deploy:namespace:
+    desc: Create namespace
+    cmd: kubectl apply -f k8s/namespace.yaml
+
+  deploy:metrics-server:
+    desc: Deploy metrics server
+    cmds:
+      - kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      - kubectl wait --for=condition=ready pod -l k8s-app=metrics-server -n kube-system --timeout=60s
+
+  deploy:config:
+    desc: Deploy configurations
+    cmds:
+      - kubectl apply -f k8s/secrets/
+      - kubectl apply -f k8s/configmaps/
+
+  deploy:database:
+    desc: Deploy PostgreSQL database
+    cmds:
+      - kubectl apply -f k8s/database/
+      - kubectl wait --for=condition=ready pod -l app=postgres -n {{.NAMESPACE}} --timeout=120s
+
+  deploy:redis:
+    desc: Deploy Redis cache
+    cmd: kubectl apply -f k8s/redis/
+
+  deploy:backend:
+    desc: Deploy backend application
+    cmd: kubectl apply -f k8s/backend/
+
+  deploy:frontend:
+    desc: Deploy frontend application
+    cmd: kubectl apply -f k8s/frontend/
+
+  deploy:ingress:
+    desc: Deploy ingress controller
+    cmd: kubectl apply -f k8s/ingress/
+
+  deploy:all:
+    desc: Full deployment pipeline
+    deps: [build:all, load:all]
+    cmds:
+      - task: deploy:namespace
+      - task: deploy:metrics-server
+      - task: deploy:config
+      - task: deploy:database
+      - task: deploy:redis
+      - task: deploy:backend
+      - task: deploy:frontend
+      - task: deploy:ingress
+      - echo "Deployment completed!"
+      - echo "Add '127.0.0.1 webapp.local' to your /etc/hosts file"
+      - echo "Access the application at http://webapp.local"
+
+  # Development Commands
+  dev:frontend:
+    desc: Start frontend in development mode
+    dir: frontend
+    cmd: npm start
+
+  dev:backend:
+    desc: Start backend in development mode
+    dir: backend
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_NAME: webapp
+      REDIS_HOST: localhost
+    cmd: go run main.go
+
+  # Port Forwarding
+  port:frontend:
+    desc: Port forward frontend service
+    cmd: kubectl port-forward -n {{.NAMESPACE}} svc/frontend-service 3000:80
+
+  port:backend:
+    desc: Port forward backend service
+    cmd: kubectl port-forward -n {{.NAMESPACE}} svc/backend-service 8080:8080
+
+  port:postgres:
+    desc: Port forward postgres service
+    cmd: kubectl port-forward -n {{.NAMESPACE}} svc/postgres-service 5432:5432
+
+  port:redis:
+    desc: Port forward redis service
+    cmd: kubectl port-forward -n {{.NAMESPACE}} svc/redis-service 6379:6379
+
+  # Monitoring Commands
+  logs:backend:
+    desc: Show backend logs
+    cmd: kubectl logs -n {{.NAMESPACE}} -l app=backend -f
+
+  logs:frontend:
+    desc: Show frontend logs
+    cmd: kubectl logs -n {{.NAMESPACE}} -l app=frontend -f
+
+  logs:postgres:
+    desc: Show postgres logs
+    cmd: kubectl logs -n {{.NAMESPACE}} -l app=postgres -f
+
+  logs:redis:
+    desc: Show redis logs
+    cmd: kubectl logs -n {{.NAMESPACE}} -l app=redis -f
+
+  status:pods:
+    desc: Show pod status
+    cmd: kubectl get pods -n {{.NAMESPACE}}
+
+  status:services:
+    desc: Show service status
+    cmd: kubectl get services -n {{.NAMESPACE}}
+
+  status:hpa:
+    desc: Show HPA status
+    cmd: kubectl get hpa -n {{.NAMESPACE}}
+
+  status:all:
+    desc: Show all resource status
+    cmds:
+      - task: status:pods
+      - task: status:services
+      - task: status:hpa
+
+  # Resource Usage
+  top:pods:
+    desc: Show pod resource usage
+    cmd: kubectl top pods -n {{.NAMESPACE}}
+
+  top:nodes:
+    desc: Show node resource usage
+    cmd: kubectl top nodes
+
+  # Load Testing
+  test:health:
+    desc: Test backend health endpoint
+    cmd: curl -s http://localhost:8080/health | jq .
+
+  test:users:
+    desc: Test users API
+    cmds:
+      - echo "Getting users:"
+      - curl -s http://localhost:8080/api/users | jq .
+      - echo "Creating test user:"
+      - curl -s -X POST -H "Content-Type: application/json" -d '{"name":"Test User","email":"test@example.com"}' http://localhost:8080/api/users | jq .
+
+  test:stress:
+    desc: Run single stress test
+    cmd: curl -s http://localhost:8080/api/stress | jq .
+
+  test:load:
+    desc: Run sustained load test
+    cmd: ./scripts/sustained-load.sh
+
+  test:load-intensive:
+    desc: Run intensive load test
+    cmd: ./scripts/intensive-load.sh
+
+  # Cleanup Commands
+  clean:pods:
+    desc: Delete all pods in namespace
+    cmd: kubectl delete pods --all -n {{.NAMESPACE}}
+
+  clean:all:
+    desc: Delete entire namespace
+    cmd: kubectl delete namespace {{.NAMESPACE}}
+
+  clean:cluster:
+    desc: Delete kind cluster
+    cmd: kind delete cluster --name {{.CLUSTER_NAME}}
+
+  # Quick Actions
+  restart:backend:
+    desc: Restart backend deployment
+    cmd: kubectl rollout restart deployment/backend -n {{.NAMESPACE}}
+
+  restart:frontend:
+    desc: Restart frontend deployment
+    cmd: kubectl rollout restart deployment/frontend -n {{.NAMESPACE}}
+
+  scale:backend:
+    desc: Scale backend deployment
+    cmd: kubectl scale deployment/backend --replicas={{.REPLICAS}} -n {{.NAMESPACE}}
+    vars:
+      REPLICAS: '{{.REPLICAS | default "2"}}'
+
+  # Complete Workflows
+  setup:
+    desc: Complete setup from scratch
+    cmds:
+      - task: cluster:create
+      - task: deploy:all
+
+  reset:
+    desc: Reset everything and redeploy
+    cmds:
+      - task: clean:all
+      - sleep 5
+      - task: deploy:all
+
+  # Helper Commands
+  hosts:add:
+    desc: Add webapp.local to /etc/hosts (requires sudo)
+    cmd: echo "127.0.0.1 webapp.local" | sudo tee -a /etc/hosts
+
+  hosts:remove:
+    desc: Remove webapp.local from /etc/hosts (requires sudo)
+    cmd: sudo sed -i '' '/webapp.local/d' /etc/hosts
