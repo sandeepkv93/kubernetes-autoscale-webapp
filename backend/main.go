@@ -49,9 +49,18 @@ func main() {
 	mux.HandleFunc("GET /api/users", userHandler.GetUsers)
 	mux.HandleFunc("POST /api/users", userHandler.CreateUser)
 	mux.HandleFunc("GET /api/users/{id}", userHandler.GetUser)
+	mux.HandleFunc("OPTIONS /api/users", func(w http.ResponseWriter, r *http.Request) {
+		// CORS preflight handled by middleware
+	})
+	mux.HandleFunc("OPTIONS /api/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+		// CORS preflight handled by middleware
+	})
 
 	// Stress test endpoint
 	mux.Handle("GET /api/stress", stressHandler)
+	mux.HandleFunc("OPTIONS /api/stress", func(w http.ResponseWriter, r *http.Request) {
+		// CORS preflight handled by middleware
+	})
 
 	// Wrap with CORS middleware
 	handler := handlers.CORSMiddleware(mux)
