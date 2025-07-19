@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080'
+// Use relative URL for API calls when in production, direct backend for development
+const API_URL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' && window.location.port === '3000' ? 'http://localhost:8080' : '')
 
 function App() {
   const [users, setUsers] = useState([])

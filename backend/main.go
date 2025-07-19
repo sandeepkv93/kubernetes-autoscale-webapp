@@ -44,6 +44,7 @@ func main() {
 
 	// Health check endpoint
 	mux.Handle("GET /health", healthHandler)
+	mux.Handle("GET /api/health", healthHandler)
 
 	// User endpoints using Go 1.22+ pattern matching
 	mux.HandleFunc("GET /api/users", userHandler.GetUsers)
