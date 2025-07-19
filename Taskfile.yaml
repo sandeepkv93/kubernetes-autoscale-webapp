@@ -123,7 +123,7 @@ tasks:
     cmd: npm start
 
   dev:backend:
-    desc: Start backend in development mode
+    desc: Start backend in development mode (original)
     dir: backend
     env:
       DB_HOST: localhost
@@ -133,6 +133,30 @@ tasks:
       DB_NAME: webapp
       REDIS_HOST: localhost
     cmd: go run main.go
+
+  dev:backend-refactored:
+    desc: Start backend in development mode (refactored)
+    dir: backend
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_NAME: webapp
+      REDIS_HOST: localhost
+    cmd: go run main-refactored.go
+
+  dev:backend-stdlib:
+    desc: Start backend using stdlib net/http (Go 1.22+)
+    dir: backend
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      DB_NAME: webapp
+      REDIS_HOST: localhost
+    cmd: go run main-stdlib.go
 
   # Port Forwarding
   port:frontend:

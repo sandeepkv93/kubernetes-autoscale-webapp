@@ -1,7 +1,6 @@
 ### Backend API Tests for K8s Auto-Scaling Web Application
-### VS Code REST Client Extension: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+### Now using standard net/http library (Go 1.24+) instead of Gorilla Mux
 
-### Variables - Change these based on your environment
 @baseUrl = http://localhost:8080
 @contentType = application/json
 

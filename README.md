@@ -81,6 +81,11 @@ task
 # Build and deploy everything
 task setup
 
+# Development modes
+task dev:backend           # Original (Gorilla Mux)
+task dev:backend-stdlib    # Standard net/http (Go 1.24+)
+task dev:frontend          # React development server
+
 # Monitor resources
 task status:all
 task top:pods
@@ -116,10 +121,16 @@ kubernetes-autoscale-webapp/
 │   ├── nginx.conf
 │   └── src/
 ├── backend/                  # Go API server
-│   ├── Dockerfile
-│   ├── go.mod
-│   ├── go.sum
-│   └── main.go
+│   ├── config/              # Configuration management
+│   ├── handlers/            # HTTP handlers (health, user, stress)
+│   ├── models/              # Data structures
+│   ├── Dockerfile           # Original container build
+│   ├── Dockerfile.stdlib    # Standard library container build
+│   ├── go.mod               # Go modules (with mux)
+│   ├── go.mod.stdlib        # Clean dependencies (stdlib only)
+│   ├── main.go              # Original entry point
+│   ├── main-refactored.go   # Organized structure (with mux)
+│   └── main-stdlib.go       # Standard net/http (Go 1.24+)
 ├── k8s/                     # Kubernetes manifests
 │   ├── namespace.yaml
 │   ├── configmaps/
@@ -138,6 +149,27 @@ kubernetes-autoscale-webapp/
 ├── Taskfile.yaml           # Development commands
 └── README.md
 ```
+
+## Backend Architecture
+
+The backend is implemented in **Go 1.24** with three different approaches:
+
+### 🔹 **Original** (`main.go`)
+- Single file implementation
+- Uses Gorilla Mux for routing
+- All code in one place for simplicity
+
+### 🔹 **Refactored** (`main-refactored.go`)
+- Organized into packages: `config/`, `handlers/`, `models/`
+- Still uses Gorilla Mux for routing
+- Better separation of concerns
+
+### 🔹 **Standard Library** (`main-stdlib.go`) ⭐ **Recommended**
+- Uses Go 1.24+ built-in HTTP routing
+- Zero external dependencies for HTTP handling
+- Modern pattern matching: `GET /api/users/{id}`
+- Path parameters via `r.PathValue("id")`
+- Faster and more maintainable
 
 ## API Endpoints
 
