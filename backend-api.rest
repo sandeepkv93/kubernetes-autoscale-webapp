@@ -1,0 +1,302 @@
+### Backend API Tests for K8s Auto-Scaling Web Application
+### VS Code REST Client Extension: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+### Variables - Change these based on your environment
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### Health Check
+# @name healthCheck
+GET {{baseUrl}}/health
+Accept: {{contentType}}
+
+###
+
+### Get All Users
+# @name getAllUsers
+GET {{baseUrl}}/api/users
+Accept: {{contentType}}
+
+###
+
+### Create New User
+# @name createUser
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+
+###
+
+### Create Another User
+# @name createUser2
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "name": "Jane Smith",
+  "email": "jane.smith@example.com"
+}
+
+###
+
+### Create User with Special Characters
+# @name createUserSpecial
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+Accept: {{contentType}}
+
+{
+  "name": "O'Connor-Smith",
+  "email": "oconnor.smith@test.com"
+}
+
+###
+
+### Get User by ID (replace {id} with actual user ID)
+# @name getUserById
+GET {{baseUrl}}/api/users/1
+Accept: {{contentType}}
+
+###
+
+### Get User by ID - Dynamic (uses response from createUser)
+# @name getUserDynamic
+GET {{baseUrl}}/api/users/{{createUser.response.body.id}}
+Accept: {{contentType}}
+
+###
+
+### Get Non-existent User
+# @name getUserNotFound
+GET {{baseUrl}}/api/users/99999
+Accept: {{contentType}}
+
+###
+
+### Stress Test Endpoint (Triggers CPU Load)
+# @name stressTest
+GET {{baseUrl}}/api/stress
+Accept: {{contentType}}
+
+###
+
+### Invalid Method Test - PUT on Users
+# @name invalidMethod
+PUT {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "test": "This should fail"
+}
+
+###
+
+### Invalid Path Test
+# @name invalidPath
+GET {{baseUrl}}/api/invalid
+Accept: {{contentType}}
+
+###
+
+### Test CORS Headers
+# @name corsTest
+OPTIONS {{baseUrl}}/api/users
+Origin: http://localhost:3000
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: Content-Type
+
+###
+
+### Batch User Creation for Testing
+# @name batchCreate1
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User 1",
+  "email": "test1@example.com"
+}
+
+###
+
+# @name batchCreate2
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User 2",
+  "email": "test2@example.com"
+}
+
+###
+
+# @name batchCreate3
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User 3",
+  "email": "test3@example.com"
+}
+
+###
+
+### Load Test Helper - Multiple Stress Calls
+### Run this multiple times to generate load
+# @name loadTest1
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name loadTest2
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name loadTest3
+GET {{baseUrl}}/api/stress
+
+###
+
+### Test Database Connection via Health
+# @name dbHealthCheck
+GET {{baseUrl}}/health
+
+###
+
+### Test with Different Environments
+### Uncomment and use based on your setup
+
+### Direct Pod Access (if port-forwarding to specific pod)
+# @baseUrl = http://localhost:8080
+
+### Via Ingress (if ingress is configured)
+# @baseUrl = http://webapp.local
+
+### Via NodePort (if using NodePort service)
+# @baseUrl = http://localhost:30080
+
+###
+
+### Performance Test - Measure Response Times
+# @name performanceTest
+# @prompt latency How long did this request take?
+GET {{baseUrl}}/api/users
+Accept: {{contentType}}
+
+###
+
+### Test Cache Behavior
+### First call will hit database, second should be cached
+# @name cacheTest1
+GET {{baseUrl}}/api/users
+Accept: {{contentType}}
+
+###
+
+# @name cacheTest2
+GET {{baseUrl}}/api/users
+Accept: {{contentType}}
+
+###
+
+### Create User with Duplicate Email (Should Fail)
+# @name duplicateEmail
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Duplicate User",
+  "email": "john.doe@example.com"
+}
+
+###
+
+### Test Empty Request Body
+# @name emptyBody
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{}
+
+###
+
+### Test Malformed JSON
+# @name malformedJson
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User"
+  "email": "missing.comma@example.com"
+}
+
+###
+
+### Test Very Long Name
+# @name longName
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "This is a very long name that might exceed database column limits if there are any constraints on the name field length in the PostgreSQL database",
+  "email": "longname@example.com"
+}
+
+###
+
+### Test Special Email Formats
+# @name specialEmail
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "name": "Special Email User",
+  "email": "user+tag@sub.example.com"
+}
+
+###
+
+### Monitor HPA Metrics During Load
+### Run these in sequence to generate sustained load
+# @name hpaTest1
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name hpaTest2
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name hpaTest3
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name hpaTest4
+GET {{baseUrl}}/api/stress
+
+###
+
+# @name hpaTest5
+GET {{baseUrl}}/api/stress
+
+###
+
+### Notes for Usage:
+### 1. Install REST Client extension in VS Code
+### 2. Open this file in VS Code
+### 3. Click "Send Request" above each request
+### 4. View responses in the separate panel
+### 5. Use Cmd/Ctrl + Alt + R to re-run the last request
+### 6. Use Cmd/Ctrl + Alt + H to view request history
+### 7. Variables at the top can be changed for different environments
+### 8. Named requests can reference previous responses using {{name.response.body.field}}
+### 9. Run stress tests multiple times to trigger HPA scaling
