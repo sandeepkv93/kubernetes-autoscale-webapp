@@ -317,7 +317,74 @@ The backend is implemented in **Go 1.24** using:
 - Load testing button
 - Real-time status updates
 
-## Monitoring and Scaling
+## Auto-scaling Implementation
+
+### How Kubernetes HPA Works
+
+This application demonstrates **Horizontal Pod Autoscaling (HPA)** using Kubernetes' built-in capabilities. The HPA automatically adjusts the number of backend pods based on observed CPU and memory utilization.
+
+### Auto-scaling Architecture
+
+```mermaid
+graph TB
+    subgraph "Metrics Collection"
+        MS[Metrics Server<br/>Collects resource usage]
+        K[Kubelet<br/>Reports metrics]
+        CP[cAdvisor<br/>Container metrics]
+    end
+    
+    subgraph "HPA Controller"
+        HC[HPA Controller<br/>Decision Engine]
+        MA[Metrics API<br/>Aggregates data]
+        AL[Algorithm<br/>Calculate desired replicas]
+    end
+    
+    subgraph "Backend Deployment"
+        RS[ReplicaSet<br/>Current: 2-10 pods]
+        P1[Pod 1<br/>Target: 50% CPU]
+        P2[Pod 2<br/>Target: 50% CPU]
+        PN[Pod N<br/>Auto-created]
+    end
+    
+    subgraph "Load Generation"
+        LT[Load Test<br/>/api/stress endpoint]
+        USER[User Traffic<br/>Normal requests]
+    end
+    
+    CP --> K
+    K --> MS
+    MS --> MA
+    MA --> HC
+    HC --> AL
+    AL --> RS
+    RS --> P1
+    RS --> P2
+    RS --> PN
+    
+    LT --> P1
+    LT --> P2
+    USER --> P1
+    USER --> P2
+    
+    style MS fill:#4CAF50
+    style HC fill:#ff6b6b
+    style AL fill:#FFC107
+    style LT fill:#e91e63
+```
+
+### Scaling Decision Algorithm
+
+The HPA uses this formula to determine the desired number of replicas:
+
+```
+desiredReplicas = ceil[currentReplicas * (currentMetricValue / desiredMetricValue)]
+```
+
+**Example Calculation:**
+- Current pods: 2
+- Current CPU: 80%
+- Target CPU: 50%
+- Desired pods: ceil[2 * (80/50)] = ceil[3.2] = **4 pods**
 
 ### Auto-scaling Timeline
 
@@ -353,6 +420,117 @@ sequenceDiagram
     
     Note over Backend: 3 pods running (optimal)
 ```
+
+### Scaling Triggers and Thresholds
+
+**Scale-Up Conditions:**
+- CPU utilization > 50% (target threshold)
+- Memory utilization > 70% (target threshold)
+- Scale-up delay: 30 seconds
+- Maximum scale-up: 100% increase (double pods) per 60 seconds
+
+**Scale-Down Conditions:**
+- CPU utilization < 50% for sustained period
+- Memory utilization < 70% for sustained period
+- Scale-down delay: 60 seconds (longer to prevent flapping)
+- Maximum scale-down: 50% reduction per 60 seconds
+
+**Limits:**
+- Minimum replicas: 2 (ensures availability)
+- Maximum replicas: 10 (prevents resource exhaustion)
+
+### Implementation Details
+
+#### 1. Metrics Server Setup
+```yaml
+# Metrics server provides resource utilization data
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-server
+spec:
+  template:
+    spec:
+      containers:
+      - name: metrics-server
+        args:
+        - --kubelet-insecure-tls  # For kind/local development
+```
+
+#### 2. HPA Configuration
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+```
+
+#### 3. Resource Requests (Critical!)
+```yaml
+# Backend pods MUST have resource requests for HPA to work
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"      # 0.1 CPU cores
+  limits:
+    memory: "256Mi"
+    cpu: "200m"      # 0.2 CPU cores
+```
+
+### Load Testing Integration
+
+The application includes a CPU-intensive endpoint specifically designed to trigger auto-scaling:
+
+```go
+// /api/stress endpoint - generates CPU load
+func stressHandler(w http.ResponseWriter, r *http.Request) {
+    start := time.Now()
+    // CPU-intensive calculation for ~2-3 seconds
+    for i := 0; i < 100000000; i++ {
+        math.Sqrt(float64(i))
+    }
+    duration := time.Since(start)
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "message": "Stress test completed",
+        "duration": duration.String(),
+    })
+}
+```
+
+### Monitoring and Scaling
 
 ### HPA Configuration
 
