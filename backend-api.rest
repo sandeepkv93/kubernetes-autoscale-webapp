@@ -1,12 +1,26 @@
 ### Backend API Tests for K8s Auto-Scaling Web Application
 ### Now using standard net/http library (Go 1.24+) instead of Gorilla Mux
 
-@baseUrl = http://localhost:8080
+### Choose your environment:
+### Option 1: Via Frontend Proxy (recommended - works without backend port-forward)
+@baseUrl = http://localhost:3001
+### Option 2: Direct Backend (requires kubectl port-forward svc/backend-service 8080:8080 -n webapp)
+# @baseUrl = http://localhost:8080
+### Option 3: Via Ingress (if configured)
+# @baseUrl = http://webapp.local
+
 @contentType = application/json
 
 ### Health Check
 # @name healthCheck
 GET {{baseUrl}}/health
+Accept: {{contentType}}
+
+###
+
+### Health Check via API endpoint (works through proxy)
+# @name apiHealthCheck
+GET {{baseUrl}}/api/health
 Accept: {{contentType}}
 
 ###
@@ -170,16 +184,17 @@ GET {{baseUrl}}/health
 ###
 
 ### Test with Different Environments
-### Uncomment and use based on your setup
+### Switch the @baseUrl at the top of the file based on your setup
 
-### Direct Pod Access (if port-forwarding to specific pod)
-# @baseUrl = http://localhost:8080
+### Current setup uses frontend proxy (localhost:3001) which:
+### - Requires: kubectl port-forward svc/frontend-service 3001:80 -n webapp
+### - Routes API calls through nginx proxy to backend
+### - Handles CORS automatically
+### - No separate backend port-forward needed
 
-### Via Ingress (if ingress is configured)
-# @baseUrl = http://webapp.local
-
-### Via NodePort (if using NodePort service)
-# @baseUrl = http://localhost:30080
+### Alternative: Direct backend access
+### - Uncomment: @baseUrl = http://localhost:8080
+### - Requires: kubectl port-forward svc/backend-service 8080:8080 -n webapp
 
 ###
 
@@ -291,11 +306,13 @@ GET {{baseUrl}}/api/stress
 
 ### Notes for Usage:
 ### 1. Install REST Client extension in VS Code
-### 2. Open this file in VS Code
-### 3. Click "Send Request" above each request
-### 4. View responses in the separate panel
-### 5. Use Cmd/Ctrl + Alt + R to re-run the last request
-### 6. Use Cmd/Ctrl + Alt + H to view request history
-### 7. Variables at the top can be changed for different environments
-### 8. Named requests can reference previous responses using {{name.response.body.field}}
-### 9. Run stress tests multiple times to trigger HPA scaling
+### 2. Ensure frontend port-forward is running: kubectl port-forward svc/frontend-service 3001:80 -n webapp
+### 3. Open this file in VS Code
+### 4. Click "Send Request" above each request
+### 5. View responses in the separate panel
+### 6. Use Cmd/Ctrl + Alt + R to re-run the last request
+### 7. Use Cmd/Ctrl + Alt + H to view request history
+### 8. Variables at the top can be changed for different environments
+### 9. Named requests can reference previous responses using {{name.response.body.field}}
+### 10. Run stress tests multiple times to trigger HPA scaling
+### 11. Use /api/health for testing through proxy, /health for direct backend access
