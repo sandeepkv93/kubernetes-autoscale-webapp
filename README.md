@@ -111,33 +111,25 @@ task setup
 ### 2. Access the Application
 
 ```mermaid
-graph LR
-    subgraph "Local Machine"
-        BROWSER[🌐 Browser]
-        HOSTS[/etc/hosts<br/>webapp.local → 127.0.0.1]
+flowchart LR
+    subgraph LocalMachine["Local Machine"]
+        BROWSER["🌐 Browser"]
+        HOSTS["/etc/hosts<br/>webapp.local to 127.0.0.1"]
     end
     
-    subgraph "Kind Cluster"
-        subgraph "Ingress"
-            NGINX[nginx-ingress<br/>:80]
-        end
-        
-        subgraph "Services"
-            FS[frontend-service<br/>:80]
-            BS[backend-service<br/>:8080]
-        end
-        
-        subgraph "Pods"
-            FP[Frontend Pods<br/>nginx + React]
-            BP[Backend Pods<br/>Go API]
-        end
+    subgraph KindCluster["Kind Cluster"]
+        NGINX["nginx-ingress<br/>:80"]
+        FS["frontend-service<br/>:80"]
+        BS["backend-service<br/>:8080"]
+        FP["Frontend Pods<br/>nginx + React"]
+        BP["Backend Pods<br/>Go API"]
     end
     
     BROWSER --> HOSTS
     HOSTS --> NGINX
     NGINX --> FS
     FS --> FP
-    FP -->|/api/*| BS
+    FP -->|"/api/*"| BS
     BS --> BP
     
     style BROWSER fill:#61dafb
@@ -258,7 +250,7 @@ flowchart TD
     B -->|/health| C[Health Check]
     B -->|/api/users GET| D[Cache Check]
     B -->|/api/users POST| E[Create User]
-    B -->|/api/users/{id}| F[Get User by ID]
+    B -->|"/api/users/:id"| F[Get User by ID]
     B -->|/api/stress| G[Stress Test]
     B -->|No Match| H[404 Not Found]
     
@@ -525,8 +517,4 @@ Typical scaling behavior:
 
 ## License
 
-MIT License - see LICENSE file for details.
-
----
-
-**Built with ❤️ for learning Kubernetes auto-scaling**
+MIT License - see LICENSE file for details
