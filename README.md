@@ -82,8 +82,7 @@ task
 task setup
 
 # Development modes
-task dev:backend           # Original (Gorilla Mux)
-task dev:backend-stdlib    # Standard net/http (Go 1.24+)
+task dev:backend           # Go backend (standard net/http)
 task dev:frontend          # React development server
 
 # Monitor resources
@@ -124,13 +123,10 @@ kubernetes-autoscale-webapp/
 │   ├── config/              # Configuration management
 │   ├── handlers/            # HTTP handlers (health, user, stress)
 │   ├── models/              # Data structures
-│   ├── Dockerfile           # Original container build
-│   ├── Dockerfile.stdlib    # Standard library container build
-│   ├── go.mod               # Go modules (with mux)
-│   ├── go.mod.stdlib        # Clean dependencies (stdlib only)
-│   ├── main.go              # Original entry point
-│   ├── main-refactored.go   # Organized structure (with mux)
-│   └── main-stdlib.go       # Standard net/http (Go 1.24+)
+│   ├── Dockerfile           # Container build
+│   ├── go.mod               # Go modules
+│   ├── go.sum               # Dependency checksums
+│   └── main.go              # Application entry point (stdlib net/http)
 ├── k8s/                     # Kubernetes manifests
 │   ├── namespace.yaml
 │   ├── configmaps/
@@ -152,24 +148,20 @@ kubernetes-autoscale-webapp/
 
 ## Backend Architecture
 
-The backend is implemented in **Go 1.24** with three different approaches:
+The backend is implemented in **Go 1.24** using:
 
-### 🔹 **Original** (`main.go`)
-- Single file implementation
-- Uses Gorilla Mux for routing
-- All code in one place for simplicity
+### 🏗️ **Clean Architecture**
+- **config/**: Environment-based configuration management
+- **handlers/**: HTTP handlers organized by domain (health, user, stress)
+- **models/**: Data structures and request/response types
+- **main.go**: Application entry point with dependency injection
 
-### 🔹 **Refactored** (`main-refactored.go`)
-- Organized into packages: `config/`, `handlers/`, `models/`
-- Still uses Gorilla Mux for routing
-- Better separation of concerns
-
-### 🔹 **Standard Library** (`main-stdlib.go`) ⭐ **Recommended**
-- Uses Go 1.24+ built-in HTTP routing
-- Zero external dependencies for HTTP handling
+### 🚀 **Standard Library HTTP**
+- Uses Go 1.24+ built-in HTTP routing (no external dependencies)
 - Modern pattern matching: `GET /api/users/{id}`
 - Path parameters via `r.PathValue("id")`
-- Faster and more maintainable
+- CORS middleware implementation
+- Structured logging and error handling
 
 ## API Endpoints
 
