@@ -2,20 +2,27 @@
 
 This document provides example responses for the REST API endpoints defined in `backend-api.rest`.
 
+## Current Setup
+
+The application now uses a **frontend proxy approach** where:
+- Frontend nginx serves the React app and proxies API calls to the backend
+- Single port-forward needed: `kubectl port-forward -n webapp svc/frontend-service 3001:80`
+- CORS is handled automatically by nginx
+- All API calls go through `http://localhost:3001/api/*`
+
 ## Prerequisites
 
 1. Install [REST Client Extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) in VS Code
-2. Ensure backend is running with port forwarding:
+2. Ensure frontend proxy is running with port forwarding:
    ```bash
-   task port:backend
-   # or
-   kubectl port-forward -n webapp svc/backend-service 8080:8080
+   kubectl port-forward -n webapp svc/frontend-service 3001:80
    ```
+3. **Note**: The API examples below use the frontend proxy at `localhost:3001` which routes calls through nginx to the backend. This handles CORS automatically and requires only one port-forward.
 
 ## API Endpoints
 
 ### 1. Health Check
-**Request:** `GET /health`
+**Request:** `GET /api/health` (via proxy)
 
 **Expected Response:**
 ```json
@@ -26,6 +33,8 @@ This document provides example responses for the REST API endpoints defined in `
   "timestamp": "2025-07-19T16:00:10.728058189Z"
 }
 ```
+
+**Note**: `/health` endpoint also exists for direct backend access, but `/api/health` works through the frontend proxy.
 
 ### 2. Get All Users
 **Request:** `GET /api/users`
@@ -123,8 +132,9 @@ User not found
 - Rerun previous requests easily
 
 ### 4. Environment Variables
-- Change `@baseUrl` at the top of the file
-- Supports different environments (localhost, kubernetes service, etc.)
+- Default `@baseUrl = http://localhost:3001` (frontend proxy)
+- Alternative: `@baseUrl = http://localhost:8080` (direct backend - requires separate port-forward)
+- Supports different environments (proxy, direct, ingress, etc.)
 
 ### 5. Dynamic Values
 - Use `{{requestName.response.body.field}}` to reference previous responses
@@ -183,31 +193,38 @@ kubectl get pods -n webapp -w
 
 ### Monitor Resource Usage
 ```bash
-task top:pods
-# or
 kubectl top pods -n webapp
 ```
 
 ### View Logs
 ```bash
-task logs:backend
-# or
+# Backend logs
 kubectl logs -n webapp -l app=backend -f
+
+# Frontend logs  
+kubectl logs -n webapp -l app=frontend -f
+
+# Database logs
+kubectl logs -n webapp postgres-0
 ```
 
 ## Troubleshooting
 
 ### Connection Refused
-- Ensure port forwarding is active: `task port:backend`
-- Check if backend pods are running: `kubectl get pods -n webapp`
+- Ensure frontend port forwarding is active: `kubectl port-forward -n webapp svc/frontend-service 3001:80`
+- Check if frontend and backend pods are running: `kubectl get pods -n webapp`
 
 ### 500 Internal Server Error
-- Check backend logs: `task logs:backend`
-- Verify database connection: `task logs:postgres`
+- Check backend logs: `kubectl logs -n webapp -l app=backend -f`
+- Verify database connection: `kubectl logs -n webapp postgres-0`
 
 ### Slow Responses
-- Check if Redis is working: `task logs:redis`
-- Monitor CPU/memory usage: `task top:pods`
+- Check if Redis is working: `kubectl logs -n webapp -l app=redis`
+- Monitor CPU/memory usage: `kubectl top pods -n webapp`
+
+### CORS Issues (if using direct backend)
+- Use frontend proxy instead: `@baseUrl = http://localhost:3001`
+- Or handle CORS in your client application
 
 ## Performance Notes
 
